@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa do Território</title>
+    <style>
+        /* === TEMA ESCURO (DARK MODE) REFINADO === */
+        * { 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            height: 100vh;
+            gap: 20px; 
+            padding: 20px; 
+            flex-direction: row;
+        }
+
+        input:focus, button:focus, .tab-btn:focus, #menuToggle:focus, #closeMenuBtn:focus, #observacoesTextarea:focus {
+            outline: 2px solid #0d6efd; /* Azul mais vivo */
+            outline-offset: 2px;
+            box-shadow: 0 0 0 3px rgba(13,110,253,0.3);
+        }
+
+        /* === BOTÕES: Base === */
+        button {
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 10px 15px;
+            border: 1px solid transparent;
+            /* Efeito de transição base */
+            transition: all 0.2s ease-out;
+        }
+        /* Efeito "pop" mais forte */
+        button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: translateY(0) scale(1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* === MENU LATERAL (Sidebar) === */
+        #menuToggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1100;
+            background: #0d6efd; /* Azul mais vivo */
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #sidebarMenu {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 280px;
+            height: 100%;
+            background: #2a2a2a; 
+            color: #f0f0f0;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+            z-index: 2000;
+            padding: 20px;
+            padding-top: 60px;
+            overflow-y: auto;
+            transition: left 0.3s ease-in-out;
+        }
+        #sidebarMenu.open { left: 0; }
+        #sidebarMenu h3 { 
+            margin-top: 0; 
+            border-bottom: 2px solid #3a3a3a;
+            padding-bottom: 10px; 
+            margin-bottom: 10px; 
+            color: #ffffff;
+        }
+        #closeMenuBtn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+        }
+        #sidebarBairrosList button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            padding: 10px 15px; /* Fonte menor, padding menor */
+            margin: 4px 0;
+            font-size: 15px; /* Fonte ligeiramente menor */
+            color: #f0f0f0;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        #sidebarBairrosList button.active {
+            background: #0d6efd;
+            color: white;
+            font-weight: 600;
+        }
+        #sidebarBairrosList button:hover:not(.active) {
+            background: #3a3a3a;
+            color: #ffffff;
+            transform: translateX(4px); /* Efeito de deslizar */
+            box-shadow: none;
+        }
+        
+        /* === PAINÉIS PRINCIPAIS (Mapa e Painel Lateral) === */
+        .mapa { 
+            flex: 2; min-width: 400px; display: flex; justify-content: center; align-items: center;
+            background: #242424; 
+            border: 1px solid #3a3a3a;
+            border-radius: 10px;
+            padding: 10px; position: relative; margin-left: 50px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .mapa img { 
+            max-width: 100%; height: auto; border-radius: 10px; 
+        }
+        .painel { 
+            flex: 1; min-width: 350px; 
+            background: #242424;
+            border: 1px solid #3a3a3a;
+            padding: 20px; border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow-y: auto; max-height: 96vh;
+        }
+        #welcomeMessage { 
+            text-align: center; font-size: 16px; color: #adb5bd;
+            margin-top: -10px; margin-bottom: 15px; font-weight: 500;
+        }
+        .painel h2 { text-align: center; margin-bottom: 20px; color: #ffffff; }
+        
+        /* Caixas de Observação e Data */
+        #datasContainer, #observacoesContainer {
+            margin-bottom: 20px; padding: 15px; border: 1px solid #3a3a3a;
+            border-radius: 8px; background-color: #1e1e1e;
+            display: none;
+        }
+        #datasContainer label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #f0f0f0;}
+        #datasContainer input[type="date"], 
+        #observacoesTextarea,
+        .dirigente-input,
+        .quadra-observacao-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #495057;
+            border-radius: 6px;
+            font-size: 14px;
+            background-color: #3a3a3a;
+            color: #f0f0f0;
+        }
+        ::placeholder { color: #adb5bd; opacity: 1; }
+        .data-saved-by { font-size: 11px; color: #adb5bd; margin-bottom: 10px; height: 12px; }
+        #observacoesTextarea { min-height: 100px; resize: vertical; }
+
+        /* === QUADRAS (EFEITO ESPECIAL) === */
+        .quadra-container { 
+            background-color: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            margin-bottom: 12px; 
+            padding: 12px 15px;
+            /* Efeito de transição */
+            transition: all 0.2s ease-out;
+            position: relative; /* Necessário para o z-index no hover */
+        }
+        .quadra-container:hover {
+            /* Efeito "Glow" e "Lift" */
+            transform: scale(1.02);
+            border-color: #0d6efd;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 8px rgba(13,110,253,0.3);
+            z-index: 10;
+        }
+        .quadra-main { display: flex; justify-content: space-between; align-items: center; }
+        .quadra-nome-container { display: flex; align-items: center; }
+        .quadra-nome { font-weight: 600; font-size: 14px; margin-right: 5px; color: #ffffff; }
+        .toggle-anotacao-btn { 
+            background: none; border: none; cursor: pointer;
+            font-size: 16px; padding: 0 5px;
+            transition: transform 0.2s ease;
+        }
+        .toggle-anotacao-btn:hover {
+            transform: scale(1.2) rotate(15deg);
+            filter: brightness(1.5);
+            box-shadow: none;
+        }
+        
+        .status-btn { 
+            flex: 1; max-width: 130px; /* Aumentado para o texto "Feito parcialmente" */
+            height: 38px;
+            border: none;
+            font-size: 13px; /* Fonte menor */
+            font-weight: 600; 
+            color: white; 
+            cursor: pointer;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+            transition: all 0.2s ease; /* Transição para o hover */
+        }
+        .status-btn:hover {
+            filter: brightness(1.15); /* Clareia o botão */
+            transform: translateY(-2px) scale(1.05);
+        }
+        
+        .quadra-details { 
+            display: none; 
+            margin-top: 12px;
+            padding-top: 12px; 
+            border-top: 1px solid #3a3a3a;
+        }
+        .dirigente-input, .quadra-observacao-input {
+            font-size: 13px; /* Fonte menor */
+        }
+        .quadra-label {
+             font-size: 12px; /* Fonte menor */
+             font-weight: 600; 
+             display: block;
+             color: #adb5bd;
+        }
+        .quadra-label.obs-label { margin-top: 10px; }
+        
+        /* === BOTÕES DO PAINEL (Cores) === */
+        .logout, .reset-btn, #verHistoricoBtn, #relatorioBtn {
+            display: block; width: 100%; color: white; border: none; 
+            padding: 10px; margin-top: 10px; 
+        }
+        .logout { background-color: #495057; } .logout:hover { background-color: #5a6268; }
+        .reset-btn { background-color: #dc3545; display: none; }
+        .reset-btn:hover { background-color: #c82333; }
+        #verHistoricoBtn { background-color: #6c757d; display: none; }
+        #verHistoricoBtn:hover { background-color: #5a6268; }
+        #relatorioBtn { background-color: #0d6efd; display: none; }
+        #relatorioBtn:hover { background-color: #0b5ed7; }
+        
+        .tab-content { display: none; } .tab-content.active { display: block; }
+        #salvarFeedback { 
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: #28a745; color: white; padding: 12px 25px; 
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+            opacity: 0; visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            font-weight: 600;
+        }
+        #salvarFeedback.show { 
+            opacity: 1; 
+            visibility: visible;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        /* === MODAIS (Pop-ups) === */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2100;
+            display: none; justify-content: center; 
+            align-items: center;
+        }
+        .modal-content { 
+            background: #2a2a2a; 
+            border: 1px solid #3a3a3a;
+            border-radius: 8px; padding: 25px;
+            width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .modal-content-large { max-width: 800px; }
+        .modal-header { 
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #3a3a3a; padding-bottom: 15px; margin-bottom: 20px;
+        }
+        .modal-header h3 { margin: 0; font-size: 22px; color: #ffffff; }
+        .modal-close { 
+            font-size: 28px; font-weight: bold; cursor: pointer; 
+            border: none; background: none; color: #adb5bd;
+            transition: color 0.2s ease;
+        }
+        .modal-close:hover { color: #ffffff; }
+        
+        #historicoLista { list-style: none; padding: 0; }
+        .historico-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #3a3a3a;
+        }
+        .historico-item:last-child { border-bottom: none; }
+        .historico-item span { font-size: 14px; line-height: 1.5; color: #f0f0f0; }
+        .historico-delete-btn { 
+            background: #dc3545; color: white; border: none; border-radius: 50%;
+            width: 30px; height: 30px; cursor: pointer; font-weight: bold;
+            line-height: 30px; text-align: center;
+            font-size: 16px;
+        }
+
+        /* === MODAL DE RELATÓRIO (Estilo Escuro) === */
+        #relatorioBairroSelector {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+            max-height: 200px; overflow-y: auto; border: 1px solid #495057;
+            padding: 15px; margin-bottom: 15px; border-radius: 6px;
+            background-color: #1e1e1e;
+        }
+        #relatorioBairroSelector label { 
+            display: block; font-size: 14px; color: #f0f0f0;
+            cursor: pointer; padding: 5px; border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        #relatorioBairroSelector label:hover { background: #3a3a3a; }
+        
+        #gerarRelatorioBtn { background-color: #28a745; }
+        #gerarRelatorioBtn:hover { background-color: #218838; }
+        #imprimirRelatorioBtn { background-color: #0d6efd; }
+        #imprimirRelatorioBtn:hover { background-color: #0b5ed7; }
+        
+        #relatorioConteudo { margin-top: 20px; border-top: 1px solid #3a3a3a; padding-top: 15px; }
+        #relatorioConteudo h4 { 
+            background-color: #3a3a3a; 
+            padding: 12px 15px;
+            border-radius: 6px; margin-top: 15px;
+            color: #ffffff;
+        }
+        #relatorioConteudo h5 { 
+            margin-bottom: 10px; border-bottom: 1px solid #3a3a3a; 
+            padding-bottom: 8px; font-size: 16px; color: #ffffff;
+        }
+        #relatorioConteudo p { font-size: 14px; margin: 4px 0; color: #f0f0f0; }
+        
+        .relatorio-summary {
+            border: 1px solid #3a3a3a; background: #1e1e1e; padding: 15px;
+            border-radius: 8px; margin-bottom: 20px;
+        }
+        .relatorio-summary p { margin: 8px 0; font-size: 14px; }
+        .progress-bar-container {
+            width: 100%; background-color: #495057; border-radius: 5px;
+            height: 22px; margin-top: 8px; overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%; background-color: #28a745; color: white;
+            text-align: center; line-height: 22px; font-size: 13px;
+            font-weight: bold; transition: width 0.5s ease;
+        }
+        .relatorio-table {
+            width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px;
+        }
+        .relatorio-table th, .relatorio-table td {
+            border: 1px solid #495057; padding: 8px 10px; text-align: left;
+        }
+        .relatorio-table th { background-color: #3a3a3a; font-weight: 600; color: #ffffff; }
+        .relatorio-table td { color: #f0f0f0; }
+
+        @media (max-width: 768px) {
+            body { 
+                flex-direction: column; height: auto; padding: 10px; gap: 15px;
+            }
+            .mapa { 
+                min-width: 100%; margin-bottom: 0; margin-left: 0; 
+                padding-top: 50px;
+                height: 50vh;
+            }
+            .mapa img { max-height: 100%; object-fit: contain; }
+            #menuToggle { top: 15px; left: 15px; }
+            .painel { 
+                max-height: none;
+                min-width: 100%;
+            }
+            #relatorioBairroSelector { grid-template-columns: 1fr; } 
+        }
+        
+        @media print {
+            body {
+                background-color: #ffffff !important;
+            }
+            body, .mapa, .painel, #sidebarMenu, #menuToggle, #historicoModal {
+                display: none !important;
+            }
+            #relatorioModal, .modal-backdrop {
+                display: block !important; position: static; box-shadow: none;
+                border: none; background: none; height: auto; width: 100%;
+                color: #000000 !important;
+            }
+            #relatorioModal .modal-content {
+                box-shadow: none; border: none; max-width: 100%; max-height: none;
+                padding: 0;
+                color: #000000 !important;
+                background-color: #ffffff !important;
+            }
+            .modal-header .modal-close, #gerarRelatorioBtn, #imprimirRelatorioBtn, #relatorioBairroSelector {
+                display: none !important;
+            }
+            .modal-header { border-bottom: none; }
+            .modal-header h3 { font-size: 24px; color: #000000; }
+            #relatorioConteudo { margin-top: 0; border: none; }
+            #relatorioConteudo h4 { background-color: #f0f0f0; color: #000; }
+            #relatorioConteudo h5 { color: #000; }
+            #relatorioConteudo p { color: #000; }
+            .relatorio-summary { background: #f8f8f8; border-color: #ddd; }
+            .relatorio-table { font-size: 10px; color: #000; }
+            .relatorio-table th { background-color: #f0f0f0; color: #000; border-color: #ccc; }
+            .relatorio-table td { color: #000; border-color: #ccc; }
+            .progress-bar { background-color: #28a745 !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="menuToggle" title="Abrir Menu de Bairros">☰</button>
+    
+    <div id="sidebarMenu">
+        <button id="closeMenuBtn">×</button>
+        <h3>Selecione o Bairro</h3>
+        <div id="sidebarBairrosList"></div>
+    </div>
+
+    <div class="mapa">
+        <img id="mapaImg" src="mapa.jpg" alt="Mapa do Território Geral">
+    </div>
+
+    <div class="painel">
+        <div id="welcomeMessage"></div>
+        <h2 id="bairroTitulo">Selecione um Bairro</h2>
+        
+        <div id="datasContainer">
+            <label for="dataInicio">Início do território (Atual):</label>
+            <input type="date" id="dataInicio">
+            <div id="dataInicioPor" class="data-saved-by"></div>
+            
+            <label for="dataFim">Fim do território (Atual):</label>
+            <input type="date" id="dataFim">
+            <div id="dataFimPor" class="data-saved-by"></div>
+        </div>
+        
+        <div id="observacoesContainer">
+            <h4>Observações do Território</h4>
+            <textarea id="observacoesTextarea" placeholder="Digite aqui anotações importantes sobre o bairro..."></textarea>
+        </div>
+        
+        <div id="conteudoBairros"></div>
+        
+        <button class="reset-btn" id="resetBtn">Reiniciar marcações</button>
+        <button id="verHistoricoBtn">Ver Histórico de Datas</button>
+        <button id="relatorioBtn">Ver Relatório (Admin)</button>
+        <button class="logout" id="logoutBtn">Sair</button>
+    </div>
+    
+    <div id="salvarFeedback">Salvo!</div>
+
+    <div id="historicoModal" class="modal-backdrop">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Histórico de Datas</h3>
+                <button id="fecharModalBtn" class="modal-close">×</button>
+            </div>
+            <ul id="historicoLista"></ul>
+        </div>
+    </div>
+
+    <div id="relatorioModal" class="modal-backdrop">
+        <div class="modal-content modal-content-large">
+            <div class="modal-header">
+                <h3>Relatório Geral de Territórios</h3>
+                <button id="fecharRelatorioBtn" class="modal-close">×</button>
+            </div>
+            
+            <h4>1. Selecione os Bairros</h4>
+            <div id="relatorioBairroSelector"></div>
+            <button id="gerarRelatorioBtn">Gerar Relatório</button>
+            <div id="relatorioConteudo"></div>
+            <button id="imprimirRelatorioBtn" style="display: none;">Imprimir Relatório</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, push, remove, get } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCjSNz59SgzJwzqndzOJO4GRqHZ3-6abGM",
+            authDomain: "login-territorios.firebaseapp.com",
+            projectId: "login-territorios",
+            storageBucket: "login-territorios.firebasestorage.app",
+            messagingSenderId: "495689013315",
+            appId: "1:495689013315:web:c8b22bbf1fe9ad99779cf6",
+            measurementId: "G-P4YG93BTN6"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app); 
+        const auth = getAuth(app);    
+
+        const bairros = {
+            "Comercial (Centro)": 19,
+            "Comercial (Vila São Jorge)": 15,
+            "Vila Brasil": 21,
+            "Vila Iti": 13,
+            "Cinquentenário A": 4,
+            "Cinquentenário B": 6,
+            "Vila Mendes": 8,
+            "Vila Luso A": 11,
+            "Vila Luso B": 10,
+            "Vila Rainho": 11,
+            "São Domingos": 13,
+            "Jardim Planaltina": 19,
+            "São Bento": 8,
+            "Parque Alvorada A": 21,
+            "Parque Alvorada B": 15,
+            "Santa Mônica": 19,
+            "Sumaré": 17,
+            "Souza Reis": 18,
+            "Itapuã": 11,
+            "Itapura": 4,
+            "Pq. dos Resedás": 1,
+            "Vista Bonita A": 14,
+            "Vista Bonita B": 5,
+            "Vista Bonita C": 11,
+            "Vista Bonita D": 11
+        };
+
+        const mapaNomesArquivos = {
+            "ComercialCentro": "comercialcentro.jpeg",
+            "ComercialVilaSoJorge": "comercialvilasaojorge.jpeg",
+            "VilaBrasil": "vilabrasil.jpeg",
+            "VilaIti": "vilaiti.jpeg",
+            "CinquentenrioA": "cinquentenarioA.jpeg",
+            "CinquentenrioB": "cinquentenarioB.jpeg",
+            "VilaMendes": "vilamendes.jpeg",
+            "VilaLusoA": "vilalusoA.jpeg",
+            "VilaLusoB": "vilalusoB.jpeg",
+            "VilaRainho": "vilarainho.jpeg",
+            "SoDomingos": "saodomingos.jpeg",
+            "JardimPlanaltina": "jardimplanaltina.jpeg",
+            "SoBento": "saobento.jpeg",
+            "ParqueAlvoradaA": "pqalvoradaA.jpeg",
+            "ParqueAlvoradaB": "pqalvoradaB.jpeg",
+            "SantaMnica": "santamonica.jpeg",
+            "Sumar": "sumare.jpeg",
+            "SouzaReis": "souzareis.jpeg",
+            "Itapu": "itapua.jpeg",
+            "Itapura": "itapura.jpeg",
+            "PqdosReseds": "pqdosresedas.jpeg",
+            "VistaBonitaA": "vistabonitaA.jpeg",
+            "VistaBonitaB": "vistabonitaB.jpeg",
+            "VistaBonitaC": "vistabonitaC.jpeg",
+            "VistaBonitaD": "vistabonitaD.jpeg"
+        };
+        
+        let quadrasPorBairro = {};
+        const mapaImgElement = document.getElementById("mapaImg");
+        const salvarFeedback = document.getElementById("salvarFeedback");
+        const resetBtn = document.getElementById("resetBtn");
+        const bairroTitulo = document.getElementById("bairroTitulo");
+        const menuToggle = document.getElementById("menuToggle");
+        const sidebarMenu = document.getElementById("sidebarMenu");
+        const closeMenuBtn = document.getElementById("closeMenuBtn");
+        const sidebarBairrosList = document.getElementById("sidebarBairrosList");
+        const conteudoBairros = document.getElementById("conteudoBairros");
+        const observacoesContainer = document.getElementById("observacoesContainer");
+        const observacoesTextarea = document.getElementById("observacoesTextarea");
+        const datasContainer = document.getElementById("datasContainer");
+        const dataInicioInput = document.getElementById("dataInicio");
+        const dataFimInput = document.getElementById("dataFim");
+        const dataInicioPor = document.getElementById("dataInicioPor");
+        const dataFimPor = document.getElementById("dataFimPor");
+        const verHistoricoBtn = document.getElementById("verHistoricoBtn");
+        const historicoModal = document.getElementById("historicoModal");
+        const fecharModalBtn = document.getElementById("fecharModalBtn");
+        const historicoLista = document.getElementById("historicoLista");
+        const welcomeMessage = document.getElementById("welcomeMessage");
+        const relatorioBtn = document.getElementById("relatorioBtn");
+        const relatorioModal = document.getElementById("relatorioModal");
+        const fecharRelatorioBtn = document.getElementById("fecharRelatorioBtn");
+        const relatorioBairroSelector = document.getElementById("relatorioBairroSelector");
+        const gerarRelatorioBtn = document.getElementById("gerarRelatorioBtn");
+        const relatorioConteudo = document.getElementById("relatorioConteudo");
+        const imprimirRelatorioBtn = document.getElementById("imprimirRelatorioBtn");
+
+        const urlMapaGeral = "mapa.jpg"; 
+        let bairroAtivoID = null;
+        let bairroAtivoNome = null;
+        let isContentLoaded = false; 
+        let currentUserName = null;
+
+        menuToggle.addEventListener("click", ()=>sidebarMenu.classList.add("open"));
+        closeMenuBtn.addEventListener("click", ()=>sidebarMenu.classList.remove("open"));
+
+        let feedbackTimeout;
+        function mostrarFeedbackSalvo(){
+            clearTimeout(feedbackTimeout);
+            salvarFeedback.classList.add("show");
+            feedbackTimeout=setTimeout(()=>salvarFeedback.classList.remove("show"),2000);
+        }
+
+        function atualizarVisualizacaoBairro(bairroID) {
+            const filename = mapaNomesArquivos[bairroID];
+            if (filename) {
+                mapaImgElement.src = `/territoriov3/bairro_maps/${filename}`; 
+            } else {
+                mapaImgElement.src = urlMapaGeral;
+            }
+        }
+
+        async function limparMarcacoes(){
+            if(!bairroAtivoID || !bairroAtivoNome) return;
+            if(!confirm(`Tem certeza que deseja REINICIAR TODAS as marcações e ARQUIVAR as datas atuais do bairro ${bairroAtivoNome}?`)) return;
+            const datasRef = ref(db, `territorios/${bairroAtivoID}/datas`);
+            const datasSnapshot = await get(datasRef);
+            const datasAtuais = datasSnapshot.val() || {};
+            if (datasAtuais.inicio) { 
+                const historicoRef = ref(db, `territorios/${bairroAtivoID}/historico`);
+                await push(historicoRef, { 
+                    inicio: datasAtuais.inicio, 
+                    fim: datasAtuais.fim || "",
+                    inicioPor: datasAtuais.inicioPor || "N/D",
+                    fimPor: datasAtuais.fimPor || ""
+                });
+            }
+            const numQuadras = bairros[bairroAtivoNome];
+            const updates = {};
+            for(let i=1;i<=numQuadras;i++) {
+                updates[`quadra${i}/status`] = "Não feita";
+                updates[`quadra${i}/mapeador`] = "";
+                updates[`quadra${i}/dirigente`] = "";
+                updates[`quadra${i}/observacao`] = ""; 
+            }
+            updates['datas'] = { inicio: "", fim: "", inicioPor: "", fimPor: "" };
+            try{
+                await update(ref(db, `territorios/${bairroAtivoID}`), updates);
+                dataInicioInput.value = "";
+                dataFimInput.value = "";
+                dataInicioPor.textContent = "";
+                dataFimPor.textContent = "";
+                mostrarFeedbackSalvo();
+                alert(`Marcações do bairro ${bairroAtivoNome} reiniciadas e datas arquivadas!`);
+            }catch(e){console.error(e); alert("Erro ao reiniciar marcações.");}
+        }
+        resetBtn.addEventListener("click", limparMarcacoes);
+
+        let saveObsTimeout;
+        observacoesTextarea.addEventListener('input', ()=>{
+            if(!bairroAtivoID) return;
+            clearTimeout(saveObsTimeout);
+            saveObsTimeout = setTimeout(()=>{
+                set(ref(db, `territorios/${bairroAtivoID}/observacoes`), observacoesTextarea.value).then(mostrarFeedbackSalvo);
+            },1000);
+        });
+
+        dataInicioInput.addEventListener('change', () => {
+            if (!bairroAtivoID) return;
+            const data = { inicio: dataInicioInput.value, inicioPor: currentUserName };
+            update(ref(db, `territorios/${bairroAtivoID}/datas`), data).then(() => {
+                mostrarFeedbackSalvo();
+                dataInicioPor.textContent = `(Salvo por: ${currentUserName})`;
+            });
+        });
+        
+        dataFimInput.addEventListener('change', () => {
+            if (!bairroAtivoID) return;
+            const data = { fim: dataFimInput.value, fimPor: currentUserName };
+            update(ref(db, `territorios/${bairroAtivoID}/datas`), data).then(() => {
+                mostrarFeedbackSalvo();
+                dataFimPor.textContent = `(Salvo por: ${currentUserName})`;
+            });
+        });
+
+        async function excluirEntradaHistorico(key) {
+            if (!bairroAtivoID || !key) return;
+            if (!confirm("Tem certeza que deseja excluir esta entrada do histórico?")) return;
+            try {
+                await remove(ref(db, `territorios/${bairroAtivoID}/historico/${key}`));
+                mostrarFeedbackSalvo();
+                abrirModalHistorico();
+            } catch (e) { console.error(e); alert("Erro ao excluir entrada."); }
+        }
+
+        function abrirModalHistorico() {
+            if (!bairroAtivoID) return;
+            const historicoRef = ref(db, `territorios/${bairroAtivoID}/historico`);
+            onValue(historicoRef, (snapshot) => {
+                historicoLista.innerHTML = ""; 
+                if (snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        const key = childSnapshot.key;
+                        const data = childSnapshot.val();
+                        const item = document.createElement("li");
+                        item.classList.add("historico-item");
+                        const texto = document.createElement("span");
+                        texto.innerHTML = `Início: ${data.inicio || 'N/D'} (por: ${data.inicioPor || 'N/D'}) <br> 
+                                         Fim: ${data.fim || 'N/D'} ${data.fimPor ? `(por: ${data.fimPor})` : ''}`;
+                        const deleteBtn = document.createElement("button");
+                        deleteBtn.classList.add("historico-delete-btn");
+                        deleteBtn.innerHTML = "×"; 
+                        deleteBtn.title = "Excluir esta entrada";
+                        deleteBtn.addEventListener('click', () => excluirEntradaHistorico(key));
+                        item.append(texto, deleteBtn);
+                        historicoLista.appendChild(item);
+                    });
+                } else {
+                    historicoLista.innerHTML = "<li>Nenhuma data arquivada.</li>";
+                }
+                historicoModal.style.display = 'flex'; 
+            }, { onlyOnce: true }); 
+        }
+
+        verHistoricoBtn.addEventListener('click', abrirModalHistorico);
+        fecharModalBtn.addEventListener('click', () => historicoModal.style.display = 'none');
+        historicoModal.addEventListener('click', (e) => {
+            if (e.target === historicoModal) historicoModal.style.display = 'none';
+        });
+
+        function abrirModalRelatorio() {
+            relatorioConteudo.innerHTML = ""; 
+            imprimirRelatorioBtn.style.display = 'none'; 
+            relatorioBairroSelector.innerHTML = "";
+            Object.keys(bairros).forEach(nomeBairro => {
+                const bairroID = nomeBairro.replace(/[^a-zA-Z0-9]/g,'');
+                const label = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = bairroID;
+                checkbox.dataset.nome = nomeBairro;
+                label.appendChild(checkbox);
+                label.append(` ${nomeBairro}`);
+                relatorioBairroSelector.appendChild(label);
+            });
+            relatorioModal.style.display = 'flex';
+        }
+        async function gerarRelatorio() {
+            relatorioConteudo.innerHTML = "<h4>Carregando dados...</h4>";
+            const selectedInputs = document.querySelectorAll('#relatorioBairroSelector input:checked');
+            if (selectedInputs.length === 0) {
+                relatorioConteudo.innerHTML = "<p>Por favor, selecione pelo menos um bairro.</p>";
+                return;
+            }
+            try {
+                const snapshot = await get(ref(db, 'territorios'));
+                const allData = snapshot.val() || {};
+                let html = ""; 
+                selectedInputs.forEach(input => {
+                    const bairroID = input.value;
+                    const nomeBairro = input.dataset.nome;
+                    const numQuadras = bairros[nomeBairro];
+                    const data = allData[bairroID] || {}; 
+                    html += `<h4>Relatório: ${nomeBairro}</h4>`;
+                    let finalizadas = 0;
+                    let emAndamento = 0;
+                    const mapeadores = new Set();
+                    const dirigentes = new Set();
+                    let tableRowsHtml = "";
+                    for (let i = 1; i <= numQuadras; i++) {
+                        const quadra = data[`quadra${i}`] || {};
+                        const status = quadra.status || "Não feita";
+                        const mapeador = quadra.mapeador || "---";
+                        const dirigente = quadra.dirigente || "---";
+                        const observacao = quadra.observacao || "---"; 
+                        
+                        if (status === "Finalizada") finalizadas++;
+                        if (status === "Feito parcialmente") emAndamento++; // <-- TEXTO ATUALIZADO
+                        if (mapeador !== "---") mapeadores.add(mapeador);
+                        if (dirigente !== "---") dirigentes.add(dirigente);
+                        
+                        tableRowsHtml += `<tr>
+                            <td>Quadra ${i}</td>
+                            <td>${status}</td>
+                            <td>${mapeador}</td>
+                            <td>${dirigente}</td>
+                            <td>${observacao}</td>
+                        </tr>`;
+                    }
+                    const percent = (numQuadras > 0) ? (finalizadas / numQuadras) * 100 : 0;
+                    const naoFeitas = numQuadras - finalizadas - emAndamento;
+                    html += `<div class="relatorio-summary">
+                        <strong>${percent.toFixed(0)}% Concluído</strong>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: ${percent}%;">${percent.toFixed(0)}%</div>
+                        </div>
+                        <p>
+                            <strong>Finalizadas:</strong> ${finalizadas} | 
+                            <strong>Parcialmente:</strong> ${emAndamento} | <strong>Não Feitas:</strong> ${naoFeitas}
+                        </p>
+                        <p><strong>Mapeadores:</strong> ${mapeadores.size > 0 ? [...mapeadores].join(', ') : 'Nenhum'}</p>
+                        <p><strong>Dirigentes:</strong> ${dirigentes.size > 0 ? [...dirigentes].join(', ') : 'Nenhum'}</p>
+                    </div>`;
+                    html += `<h5>Histórico de Datas:</h5>`;
+                    if (data.historico && Object.keys(data.historico).length > 0) {
+                        Object.values(data.historico).forEach(entry => {
+                            html += `<p>Início: ${entry.inicio || 'N/D'} (por: ${entry.inicioPor || 'N/D'}) | Fim: ${entry.fim || 'N/D'} ${entry.fimPor ? `(por: ${entry.fimPor})` : ''}</p>`;
+                        });
+                    } else { html += `<p>Nenhum histórico arquivado.</p>`; }
+                    html += `<h5>Datas Atuais (em andamento):</h5>`;
+                    if (data.datas && data.datas.inicio) {
+                         html += `<p>Início: ${data.datas.inicio} (por: ${data.datas.inicioPor || 'N/D'})</p>`;
+                         html += `<p>Fim: ${data.datas.fim || 'Aberto'} ${data.datas.fimPor ? `(por: ${data.datas.fimPor})` : ''}</p>`;
+                    } else { html += `<p>Nenhum trabalho atual.</p>`; }
+                    html += `<h5>Detalhes das Quadras:</h5>
+                        <table class="relatorio-table">
+                            <thead>
+                                <tr>
+                                    <th>Quadra</th>
+                                    <th>Status</th>
+                                    <th>Mapeador (Quem fez)</th>
+                                    <th>Dirigente</th>
+                                    <th>Observação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                        </table>`;
+                });
+                relatorioConteudo.innerHTML = html;
+                imprimirRelatorioBtn.style.display = 'block';
+            } catch (e) {
+                console.error("Erro ao gerar relatório:", e);
+                relatorioConteudo.innerHTML = "<p>Erro ao carregar dados. Verifique a consola.</p>";
+            }
+        }
+        relatorioBtn.addEventListener('click', abrirModalRelatorio);
+        gerarRelatorioBtn.addEventListener('click', gerarRelatorio);
+        fecharRelatorioBtn.addEventListener('click', () => relatorioModal.style.display = 'none');
+        relatorioModal.addEventListener('click', (e) => {
+            if (e.target === relatorioModal) relatorioModal.style.display = 'none';
+        });
+        imprimirRelatorioBtn.addEventListener('click', () => window.print());
+
+        function setBairroAtivo(bairroID,nomeBairro){
+            bairroAtivoID = bairroID;
+            bairroAtivoNome = nomeBairro;
+            bairroTitulo.textContent = nomeBairro;
+            resetBtn.textContent = `Reiniciar marcações (${nomeBairro})`;
+            resetBtn.style.display='block';
+            verHistoricoBtn.style.display = 'block';
+            observacoesContainer.style.display='block';
+            datasContainer.style.display='block';
+            atualizarVisualizacaoBairro(bairroID);
+            document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active"));
+            document.getElementById(`content-${bairroID}`).classList.add("active");
+            document.querySelectorAll("#sidebarBairrosList button").forEach(b=>b.classList.remove("active"));
+            document.querySelector(`#sidebarBairrosList button[data-bairro="${bairroID}"]`).classList.add("active");
+            onValue(ref(db, `territorios/${bairroID}/observacoes`), snap=>{
+                if(bairroID===bairroAtivoID) observacoesTextarea.value = snap.val()||"";
+            }, {onlyOnce:true});
+            onValue(ref(db, `territorios/${bairroID}/datas`), snap=>{
+                if(bairroID===bairroAtivoID) {
+                    const datas = snap.val() || {};
+                    dataInicioInput.value = datas.inicio || "";
+                    dataFimInput.value = datas.fim || "";
+                    dataInicioPor.textContent = datas.inicioPor ? `(Salvo por: ${datas.inicioPor})` : "";
+                    dataFimPor.textContent = datas.fimPor ? `(Salvo por: ${datas.fimPor})` : "";
+                }
+            }, {onlyOnce:true});
+            sidebarMenu.classList.remove("open");
+        }
+
+        function carregarPainel(){
+            if(isContentLoaded) return;
+            isContentLoaded=true;
+            let primeiroBairroID=null, primeiroBairroNome=null;
+
+            Object.keys(bairros).forEach((nomeBairro,index)=>{
+                const bairroID = nomeBairro.replace(/[^a-zA-Z0-9]/g,'');
+                const sidebarBtn = document.createElement("button");
+                sidebarBtn.textContent = nomeBairro;
+                sidebarBtn.dataset.bairro = bairroID;
+                sidebarBairrosList.appendChild(sidebarBtn);
+                sidebarBtn.addEventListener("click", ()=>setBairroAtivo(bairroID,nomeBairro));
+
+                const tabContent = document.createElement("div");
+                tabContent.classList.add("tab-content");
+                tabContent.id = `content-${bairroID}`;
+                conteudoBairros.appendChild(tabContent);
+                quadrasPorBairro[nomeBairro]={};
+                const numQuadras = bairros[nomeBairro];
+                
+                for(let i=1;i<=numQuadras;i++){
+                    const quadraContainer = document.createElement("div");
+                    quadraContainer.classList.add("quadra-container");
+                    const quadraMain = document.createElement("div");
+                    quadraMain.classList.add("quadra-main");
+                    const nomeContainer = document.createElement("div");
+                    nomeContainer.classList.add("quadra-nome-container");
+                    const nome = document.createElement("span");
+                    nome.classList.add("quadra-nome");
+                    let nomeQuadra = `Quadra ${i}`;
+                    if(nomeBairro==="Parque Alvorada A"){
+                        if(i===20) nomeQuadra="CDHU";
+                        else if(i===21) nomeQuadra="CEU";
+                    }
+                    nome.textContent = nomeQuadra;
+
+                    const toggleBtn = document.createElement("button");
+                    toggleBtn.classList.add("toggle-anotacao-btn");
+                    toggleBtn.textContent = "🗒️";
+                    toggleBtn.title = "Anotar Dirigente / Observação";
+                    nomeContainer.append(nome, toggleBtn);
+
+                    const statusBtn = document.createElement("button");
+                    statusBtn.classList.add("status-btn");
+
+                    // === TEXTO ATUALIZADO ===
+                    const estados=["Não feita","Feito parcialmente","Finalizada"];
+                    const cores={ "Não feita":"#dc3545","Feito parcialmente":"#fd7e14","Finalizada":"#28a745" };
+                    let statusAtual="Não feita";
+                    function atualizarBotao(status){
+                        statusBtn.textContent=status;
+                        statusBtn.style.backgroundColor=cores[status];
+                    }
+                    atualizarBotao(statusAtual);
+
+                    const detailsDiv = document.createElement("div");
+                    detailsDiv.classList.add("quadra-details");
+                    
+                    const dirigenteLabel = document.createElement("label");
+                    dirigenteLabel.textContent = "Dirigente:";
+                    dirigenteLabel.classList.add("quadra-label");
+                    const dirigenteInput = document.createElement("input");
+                    dirigenteInput.type = "text";
+                    dirigenteInput.classList.add("dirigente-input");
+                    dirigenteInput.placeholder = "Nome do dirigente...";
+                    
+                    const obsLabel = document.createElement("label");
+                    obsLabel.textContent = "Observação da Quadra:";
+                    obsLabel.classList.add("quadra-label", "obs-label");
+                    const obsInput = document.createElement("textarea");
+                    obsInput.classList.add("quadra-observacao-input");
+                    obsInput.placeholder = "Anotações da quadra...";
+                    
+                    detailsDiv.append(dirigenteLabel, dirigenteInput, obsLabel, obsInput);
+                    
+                    quadraMain.append(nomeContainer, statusBtn);
+                    quadraContainer.append(quadraMain, detailsDiv); // 'mapeadorText' foi removido
+                    tabContent.appendChild(quadraContainer);
+
+                    toggleBtn.addEventListener('click', () => {
+                        detailsDiv.style.display = (detailsDiv.style.display === 'block') ? 'none' : 'block';
+                    });
+
+                    let saveDirigenteTimeout;
+                    dirigenteInput.addEventListener('input', () => {
+                        clearTimeout(saveDirigenteTimeout);
+                        saveDirigenteTimeout = setTimeout(() => {
+                            const dirigenteRef = ref(db, `territorios/${bairroID}/quadra${i}/dirigente`);
+                            set(dirigenteRef, dirigenteInput.value).then(mostrarFeedbackSalvo);
+                        }, 1000);
+                    });
+
+                    let saveObsQuadraTimeout;
+                    obsInput.addEventListener('input', () => {
+                        clearTimeout(saveObsQuadraTimeout);
+                        saveObsQuadraTimeout = setTimeout(() => {
+                            const obsRef = ref(db, `territorios/${bairroID}/quadra${i}/observacao`);
+                            set(obsRef, obsInput.value).then(mostrarFeedbackSalvo);
+                        }, 1000);
+                    });
+
+                    statusBtn.addEventListener("click", ()=>{
+                        const idx=estados.indexOf(statusAtual);
+                        statusAtual=estados[(idx+1)%estados.length];
+                        atualizarBotao(statusAtual);
+                        
+                        const dadosUpdate = { status: statusAtual, mapeador: currentUserName };
+                        update(ref(db, `territorios/${bairroID}/quadra${i}`), dadosUpdate).then(mostrarFeedbackSalvo);
+                    });
+
+                    const quadraRef = ref(db, `territorios/${bairroID}/quadra${i}`);
+                    onValue(quadraRef, snap=>{
+                        const data = snap.val() || {};
+                        const val = data.status || "Não feita";
+                        const dirigente = data.dirigente || "";
+                        const observacao = data.observacao || "";
+                        
+                        statusAtual=val;
+                        atualizarBotao(statusAtual);
+                        
+                        if (document.activeElement !== dirigenteInput) {
+                            dirigenteInput.value = dirigente;
+                        }
+                        if (document.activeElement !== obsInput) {
+                            obsInput.value = observacao;
+                        }
+                        
+                        quadrasPorBairro[nomeBairro][i] = statusBtn;
+                    });
+                }
+
+                if(index===0){ 
+                    primeiroBairroID=bairroID; 
+                    primeiroBairroNome=nomeBairro;
+                }
+            });
+
+            mapaImgElement.src = urlMapaGeral;
+            if(primeiroBairroID) setBairroAtivo(primeiroBairroID,primeiroBairroNome);
+        }
+
+        onAuthStateChanged(auth,user=>{
+            if(user) {
+                currentUserName = user.displayName || "Usuário"; 
+                welcomeMessage.textContent = `Olá, ${currentUserName}!`;
+
+                const adminEmails = [
+                    "alexandremarcondes58@gmail.com",
+                    "matheushenriquedefaccimarconde@gmail.com"
+                ];
+                
+                if (adminEmails.includes(user.email)) {
+                    relatorioBtn.style.display = 'block';
+                }
+                
+                carregarPainel();
+            }
+            else {
+                window.location.href="/territoriov3/index.html"; 
+            }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click",()=>{
+            signOut(auth).then(()=>window.location.href="/territoriov3/index.html");
+        });
+
+    </script>
+</body>
+</html>
